@@ -67,11 +67,9 @@ document.getElementById("salir")
         panel.style.display = "none";
     });
 
-supabaseClient.auth.initialize().then(() => {
-    if (!recuperando) {
+
         verificarAcceso();
-    }
-});
+    
 
 const recuperacion = document.getElementById("recuperacion");
 const mensajeRecuperacion =
@@ -115,3 +113,32 @@ document.getElementById("formRecuperacion")
             "Contraseña actualizada. Ya puedes iniciar sesión.";
     });
 
+
+async function iniciarPanel() {
+    const hash = window.location.hash;
+
+    if (
+        hash.includes("type=recovery") ||
+        hash.includes("type%3Drecovery")
+    ) {
+        recuperando = true;
+
+        login.style.display = "none";
+        panel.style.display = "none";
+        recuperacion.style.display = "block";
+
+        const { error } =
+            await supabaseClient.auth.initialize();
+
+        if (error) {
+            mensajeRecuperacion.textContent =
+                "No se pudo validar el enlace. Solicita uno nuevo.";
+        }
+
+        return;
+    }
+
+    await verificarAcceso();
+}
+
+iniciarPanel();
