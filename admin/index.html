@@ -1,0 +1,114 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración ELO</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #151515;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .contenedor {
+            background: #242424;
+            padding: 30px;
+            border-radius: 12px;
+            width: 320px;
+            max-width: 85%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #ffbf00;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 12px;
+            box-sizing: border-box;
+            border-radius: 6px;
+        }
+
+        input {
+            border: 1px solid #555;
+            background: #333;
+            color: white;
+        }
+
+        button {
+            border: none;
+            background: #ffbf00;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #mensaje {
+            color: #ff7777;
+        }
+
+        #panel {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor" id="login">
+        <h1>ELO Admin</h1>
+        <p>Iniciar sesión</p>
+
+        <form id="formLogin">
+            <input type="email" id="correo"
+                   placeholder="Correo electrónico" required>
+
+            <input type="password" id="contrasena"
+                   placeholder="Contraseña" required>
+
+            <button type="submit">Ingresar</button>
+        </form>
+
+        <p id="mensaje"></p>
+    </div>
+
+<div class="contenedor" id="recuperacion" style="display: none;">
+    <h1>Nueva contraseña</h1>
+    <p>Escribe tu nueva contraseña para ELO.</p>
+
+    <form id="formRecuperacion">
+        <input type="password"
+               id="nuevaContrasena"
+               placeholder="Nueva contraseña"
+               minlength="8"
+               required>
+
+        <button type="submit">
+            Guardar contraseña
+        </button>
+    </form>
+
+    <p id="mensajeRecuperacion"></p>
+</div>
+
+    <div class="contenedor" id="panel">
+        <h1>Panel ELO</h1>
+        <p>Bienvenida, administradora.</p>
+        <p>Acceso autorizado.</p>
+        <button id="salir">Cerrar sesión</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="admin.js"></script>
+
+</body>
+</html>
