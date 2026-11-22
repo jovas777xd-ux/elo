@@ -6,15 +6,35 @@ const supabaseClient = window.supabase.createClient(
 
 const login = document.getElementById("login");
 const panel = document.getElementById("panel");
+const recuperacion = document.getElementById("recuperacion");
+
 const mensaje = document.getElementById("mensaje");
+const mensajeRecuperacion = document.getElementById("mensajeRecuperacion");
+
+const formRecuperacion = document.getElementById("formRecuperacion");
+
+let recuperando = false;
+
+function mostrar(seccion) {
+    login.style.display = seccion === "login" ? "block" : "none";
+    panel.style.display = seccion === "panel" ? "block" : "none";
+    recuperacion.style.display =
+        seccion === "recuperacion" ? "block" : "none";
+}
+
+// Ocultar los formularios mientras se comprueba el acceso
+mostrar("");
 
 async function verificarAcceso() {
+    if (recuperando) {
+        return;
+    }
+
     const { data: { user }, error } =
         await supabaseClient.auth.getUser();
 
     if (error || !user) {
-        login.style.display = "block";
-        panel.style.display = "none";
+        mostrar("login");
         return;
     }
 
@@ -26,24 +46,39 @@ async function verificarAcceso() {
 
     if (permisoError || !data) {
         await supabaseClient.auth.signOut();
-        login.style.display = "block";
-        panel.style.display = "none";
-        mensaje.textContent = "No tienes permiso de administración.";
+
+        mensaje.textContent =
+            "No tienes permiso de administración.";
+
+        mostrar("login");
         return;
     }
 
-    login.style.display = "none";
-    panel.style.display = "block";
+    mostrar("panel");
 }
 
+// Detectar una recuperación validada por Supabase
+supabaseClient.auth.onAuthStateChange((evento) => {
+    if (evento === "PASSWORD_RECOVERY") {
+        recuperando = true;
+        formRecuperacion.style.display = "block";
+        mensajeRecuperacion.textContent = "";
+        mostrar("recuperacion");
+    }
+});
+
+// Iniciar sesión
 document.getElementById("formLogin")
     .addEventListener("submit", async function(evento) {
         evento.preventDefault();
 
         mensaje.textContent = "Verificando...";
 
-        const correo = document.getElementById("correo").value;
-        const contrasena = document.getElementById("contrasena").value;
+        const correo =
+            document.getElementById("correo").value;
+
+        const contrasena =
+            document.getElementById("contrasena").value;
 
         const { error } =
             await supabaseClient.auth.signInWithPassword({
@@ -52,7 +87,8 @@ document.getElementById("formLogin")
             });
 
         if (error) {
-            mensaje.textContent = "Correo o contraseña incorrectos.";
+            mensaje.textContent =
+                "No se pudo iniciar sesión. Revisa tus datos.";
             return;
         }
 
@@ -60,83 +96,130 @@ document.getElementById("formLogin")
         await verificarAcceso();
     });
 
-document.getElementById("salir")
-    .addEventListener("click", async function() {
-        await supabaseClient.auth.signOut();
-        login.style.display = "block";
-        panel.style.display = "none";
-    });
-
-
-        verificarAcceso();
-    
-
-const recuperacion = document.getElementById("recuperacion");
-const mensajeRecuperacion =
-    document.getElementById("mensajeRecuperacion");
-
-let recuperando = false;
-
-supabaseClient.auth.onAuthStateChange((evento) => {
-    if (evento === "PASSWORD_RECOVERY") {
-        recuperando = true;
-        login.style.display = "none";
-        panel.style.display = "none";
-        recuperacion.style.display = "block";
-    }
-});
-
-document.getElementById("formRecuperacion")
-    .addEventListener("submit", async function(evento) {
+// Guardar nueva contraseña
+formRecuperacion.addEventListener(
+    "submit",
+    async function(evento) {
         evento.preventDefault();
 
-        const nueva = document.getElementById("nuevaContrasena").value;
+        if (!recuperando) {
+            mensajeRecuperacion.textContent =
+                "Primero debes validar un enlace de recuperación.";
+            return;
+        }
+
+        mensajeRecuperacion.textContent =
+            "Comprobando sesión...";
+
+        const { data: { user }, error: sesionError } =
+            await supabaseClient.auth.getUser();
+
+        if (sesionError || !user) {
+            mensajeRecuperacion.textContent =
+                "El enlace no tiene una sesión válida. Solicita uno nuevo.";
+            return;
+        }
+
+        const nueva =
+            document.getElementById("nuevaContrasena").value;
 
         mensajeRecuperacion.textContent = "Guardando...";
 
-        const { error } = await supabaseClient.auth.updateUser({
-            password: nueva
-        });
+        const { error } =
+            await supabaseClient.auth.updateUser({
+                password: nueva
+            });
 
         if (error) {
             mensajeRecuperacion.textContent = error.message;
             return;
         }
 
-        recuperando = false;
         await supabaseClient.auth.signOut();
 
-        recuperacion.style.display = "none";
-        login.style.display = "block";
+        recuperando = false;
+
+        window.history.replaceState(
+            null,
+            "",
+            window.location.pathname
+        );
+
+        mostrar("login");
 
         mensaje.textContent =
             "Contraseña actualizada. Ya puedes iniciar sesión.";
+    }
+);
+
+// Cerrar sesión
+document.getElementById("salir")
+    .addEventListener("click", async function() {
+        await supabaseClient.auth.signOut();
+        mostrar("login");
     });
 
-
+// Comprobar cómo se abrió la página
 async function iniciarPanel() {
-    const hash = window.location.hash;
+    const hash = new URLSearchParams(
+        window.location.hash.substring(1)
+    );
 
-    if (
-        hash.includes("type=recovery") ||
-        hash.includes("type%3Drecovery")
-    ) {
-        recuperando = true;
+    const parametros = new URLSearchParams(
+        window.location.search
+    );
 
-        login.style.display = "none";
-        panel.style.display = "none";
-        recuperacion.style.display = "block";
+    const esRecuperacion =
+        hash.get("type") === "recovery" ||
+        parametros.get("type") === "recovery";
 
-        const { error } =
-            await supabaseClient.auth.initialize();
+    const tieneCodigo =
+        parametros.has("code") ||
+        parametros.has("token_hash");
 
-        if (error) {
-            mensajeRecuperacion.textContent =
-                "No se pudo validar el enlace. Solicita uno nuevo.";
-        }
+    // Supabase procesa automáticamente los enlaces compatibles
+    const { error: errorInicio } =
+        await supabaseClient.auth.initialize();
 
+    if (recuperando) {
         return;
     }
+
+    if (esRecuperacion || tieneCodigo) {
+        const { data: { session } } =
+            await supabaseClient.auth.getSession();
+
+        if (errorInicio || !session) {
+            recuperando = true;
+            formRecuperacion.style.display = "none";
+
+            mensajeRecuperacion.textContent =
+                "El enlace no se pudo validar o caducó. Solicita uno nuevo.";
+
+            mostrar("recuperacion");
+            return;
+        }
+
+        // Un enlace de recuperación debe generar
+        // el evento PASSWORD_RECOVERY.
+        // No mostrar el cambio de contraseña
+        // por tener solamente una sesión normal.
+        if (esRecuperacion) {
+            recuperando = true;
+            formRecuperacion.style.display = "block";
+            mostrar("recuperacion");
+            return;
+        }
+
+        await verificarAcceso();
+        return;
+    }
+
+    await verificarAcceso();
+}
+
+iniciarPanel();
+
 
     await verificarAcceso();
 }
