@@ -469,6 +469,56 @@ if (formProducto) {
     });
 }
 
+document.getElementById("formEditar")
+    .addEventListener("submit", async function(evento) {
+        evento.preventDefault();
+
+        const id = document.getElementById("editarId").value;
+        const nombre =
+            document.getElementById("editarNombre").value.trim();
+        const precio =
+            document.getElementById("editarPrecio").value;
+        const categoria =
+            document.getElementById("editarCategoria").value.trim();
+
+        const mensajeEditar =
+            document.getElementById("mensajeEditar");
+
+        if (!nombre) {
+            mensajeEditar.textContent =
+                "El nombre es obligatorio.";
+            return;
+        }
+
+        mensajeEditar.textContent = "Guardando cambios...";
+
+        const { error } = await supabaseClient
+            .from("productos")
+            .update({
+                nombre: nombre,
+                precio: precio === "" ? null : Number(precio),
+                categoria: categoria
+            })
+            .eq("id", id);
+
+        if (error) {
+            mensajeEditar.textContent =
+                "Error: " + error.message;
+            return;
+        }
+
+        mensajeEditar.textContent =
+            "Cambios guardados correctamente.";
+
+        await cargarProductos();
+    });
+
+document.getElementById("cancelarEdicion")
+    .addEventListener("click", function() {
+        document.getElementById("seccionEditar")
+            .style.display = "none";
+    });
+
 
 
 
