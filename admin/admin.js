@@ -329,49 +329,6 @@ botonEditar.addEventListener("click", function() {
 document.getElementById("actualizarProductos")
     .addEventListener("click", cargarProductos);
 
-
-document.getElementById("formProducto")
-    .addEventListener("submit", async function(evento) {
-        evento.preventDefault();
-
-        const nombre =
-            document.getElementById("nombreProducto").value.trim();
-
-        const precioTexto =
-            document.getElementById("precioProducto").value;
-
-        const categoria =
-            document.getElementById("categoriaProducto").value.trim();
-
-        const mensajeGuardar =
-            document.getElementById("mensajeGuardar");
-
-        mensajeGuardar.textContent = "Guardando...";
-
-        const { error } = await supabaseClient
-            .from("productos")
-            .insert({
-                nombre: nombre,
-                precio: precioTexto === ""
-                    ? null
-                    : Number(precioTexto),
-                categoria: categoria,
-                activo: false
-            });
-
-        if (error) {
-            mensajeGuardar.textContent =
-                "Error: " + error.message;
-            return;
-        }
-
-        mensajeGuardar.textContent =
-            "Producto guardado correctamente.";
-
-        evento.target.reset();
-        await cargarProductos();
-    });
-
 iniciarPanel();
 
 const formProducto = document.getElementById("formProducto");
