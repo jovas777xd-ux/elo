@@ -268,9 +268,67 @@ data.forEach(function(producto) {
     botonEditar.textContent = "Editar";
     botonEditar.type = "button";
 
-    botonEditar.addEventListener("click", function() {
-        alert("Vamos a editar: " + producto.nombre);
-    });
+   
+botonEditar.addEventListener("click", async function() {
+
+    const nuevoNombre = prompt(
+        "Nuevo nombre del producto:",
+        producto.nombre
+    );
+
+    if (nuevoNombre === null) return;
+
+    if (nuevoNombre.trim() === "") {
+        alert("El nombre no puede estar vacío.");
+        return;
+    }
+
+    const nuevoPrecio = prompt(
+        "Nuevo precio:",
+        producto.precio ?? ""
+    );
+
+    if (nuevoPrecio === null) return;
+
+    if (
+        nuevoPrecio.trim() !== "" &&
+        (!Number.isFinite(Number(nuevoPrecio)) ||
+         Number(nuevoPrecio) < 0)
+    ) {
+        alert("Introduce un precio válido.");
+        return;
+    }
+
+    const nuevaCategoria = prompt(
+        "Nueva categoría:",
+        producto.categoria ?? ""
+    );
+
+    if (nuevaCategoria === null) return;
+
+    botonEditar.disabled = true;
+
+    const { error } = await supabaseClient
+        .from("productos")
+        .update({
+            nombre: nuevoNombre.trim(),
+            precio: nuevoPrecio.trim() === ""
+                ? null
+                : Number(nuevoPrecio),
+            categoria: nuevaCategoria.trim()
+        })
+        .eq("id", producto.id);
+
+    if (error) {
+        alert("Error al editar: " + error.message);
+        botonEditar.disabled = false;
+        return;
+    }
+
+    alert("Producto actualizado correctamente.");
+    await cargarProductos();
+});
+
 
     const botonEstado = document.createElement("button");
     botonEstado.type = "button";
