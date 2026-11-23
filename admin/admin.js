@@ -269,12 +269,28 @@ data.forEach(function(producto) {
     botonEditar.type = "button";
 
    
-botonEditar.addEventListener("click", async function() {
 
-    const nuevoNombre = prompt(
-        "Nuevo nombre del producto:",
-        producto.nombre
-    );
+botonEditar.addEventListener("click", function() {
+    document.getElementById("editarId").value =
+        producto.id;
+
+    document.getElementById("editarNombre").value =
+        producto.nombre;
+
+    document.getElementById("editarPrecio").value =
+        producto.precio ?? "";
+
+    document.getElementById("editarCategoria").value =
+        producto.categoria ?? "";
+
+    document.getElementById("mensajeEditar").textContent = "";
+
+    document.getElementById("seccionEditar").style.display =
+        "block";
+
+    document.getElementById("seccionEditar")
+        .scrollIntoView({ behavior: "smooth" });
+});
 
     if (nuevoNombre === null) return;
 
