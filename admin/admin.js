@@ -284,7 +284,7 @@ botonEditar.addEventListener("click", function() {
         producto.categoria ?? "";
 
     document.getElementById("mensajeEditar").textContent = "";
-
+document.getElementById("editarImagen").value = "";
     document.getElementById("seccionEditar").style.display =
         "block";
 
@@ -485,49 +485,108 @@ if (formProducto) {
 }
 
 
+
 document.getElementById("formEditar")
     .addEventListener("submit", async function(evento) {
         evento.preventDefault();
 
         const id = document.getElementById("editarId").value;
-        const nombre =
-            document.getElementById("editarNombre").value.trim();
-        const precio =
-            document.getElementById("editarPrecio").value;
-        const categoria =
-            document.getElementById("editarCategoria").value.trim();
-
-        const mensajeEditar =
-            document.getElementById("mensajeEditar");
+        const nombre = document.getElementById("editarNombre").value.trim();
+        const precio = document.getElementById("editarPrecio").value;
+        const categoria = document.getElementById("editarCategoria").value.trim();
+        const archivo = document.getElementById("editarImagen").files[0];
+        const mensaje = document.getElementById("mensajeEditar");
+        const boton = evento.target.querySelector('button[type="submit"]');
 
         if (!nombre) {
-            mensajeEditar.textContent =
-                "El nombre es obligatorio.";
+            mensaje.textContent = "El nombre es obligatorio.";
             return;
         }
 
-        mensajeEditar.textContent = "Guardando cambios...";
+        const tipos = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp"
+        };
 
-        const { error } = await supabaseClient
-            .from("productos")
-            .update({
+        if (archivo && !tipos[archivo.type]) {
+            mensaje.textContent = "Solo JPG, PNG o WEBP.";
+            return;
+        }
+
+        if (archivo && archivo.size > 5 * 1024 * 1024) {
+            mensaje.textContent = "La imagen no debe superar 5 MB.";
+            return;
+        }
+
+        if (boton.disabled) return;
+        boton.disabled = true;
+
+        let rutaNueva = null;
+
+        try {
+            const cambios = {
                 nombre: nombre,
                 precio: precio === "" ? null : Number(precio),
                 categoria: categoria
-            })
-            .eq("id", id);
+            };
 
-        if (error) {
-            mensajeEditar.textContent =
-                "Error: " + error.message;
-            return;
+            if (archivo) {
+                mensaje.textContent = "Subiendo nueva fotografía...";
+
+                rutaNueva = "catalogo/" +
+                    crypto.randomUUID() + "." + tipos[archivo.type];
+
+                const { error: errorImagen } = await supabaseClient
+                    .storage
+                    .from("productos")
+                    .upload(rutaNueva, archivo, {
+                        contentType: archivo.type,
+                        upsert: false
+                    });
+
+                if (errorImagen) {
+                    throw new Error(errorImagen.message);
+                }
+
+                const { data } = supabaseClient
+                    .storage
+                    .from("productos")
+                    .getPublicUrl(rutaNueva);
+
+                cambios.imagen = data.publicUrl;
+            }
+
+            mensaje.textContent = "Guardando cambios...";
+
+            const { error } = await supabaseClient
+                .from("productos")
+                .update(cambios)
+                .eq("id", id);
+
+            if (error) {
+                if (rutaNueva) {
+                    await supabaseClient.storage
+                        .from("productos")
+                        .remove([rutaNueva]);
+                }
+
+                rutaNueva = null;
+                throw new Error(error.message);
+            }
+
+            mensaje.textContent = "¡Producto actualizado correctamente!";
+            document.getElementById("editarImagen").value = "";
+
+            await cargarProductos();
+
+        } catch (error) {
+            mensaje.textContent = "Error: " + error.message;
+        } finally {
+            boton.disabled = false;
         }
-
-        mensajeEditar.textContent =
-            "Cambios guardados correctamente.";
-
-        await cargarProductos();
     });
+
 
 document.getElementById("cancelarEdicion")
     .addEventListener("click", function() {
