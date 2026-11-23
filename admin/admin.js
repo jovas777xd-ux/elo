@@ -331,48 +331,142 @@ document.getElementById("actualizarProductos")
 
 iniciarPanel();
 
+
 const formProducto = document.getElementById("formProducto");
 
 if (formProducto) {
     formProducto.addEventListener("submit", async function(evento) {
         evento.preventDefault();
 
-        const mensajeGuardar =
-            document.getElementById("mensajeGuardar");
+        const boton = formProducto.querySelector(
+            'button[type="submit"]'
+        );
 
-        const nombre =
-            document.getElementById("nombreProducto").value.trim();
+        if (boton.disabled) return;
 
-        const precio =
-            document.getElementById("precioProducto").value;
+        const mensaje = document.getElementById("mensajeGuardar");
 
-        const categoria =
-            document.getElementById("categoriaProducto").value.trim();
+        const nombre = document.getElementById("nombreProducto")
+            .value.trim();
 
-        mensajeGuardar.textContent = "Guardando producto...";
+        const precio = document.getElementById("precioProducto").value;
 
-        const { error } = await supabaseClient
-            .from("productos")
-            .insert({
-                nombre: nombre,
-                precio: precio === "" ? null : Number(precio),
-                categoria: categoria,
-                activo: false
-            });
+        const categoria = document.getElementById("categoriaProducto")
+            .value.trim();
 
-        if (error) {
-            mensajeGuardar.textContent =
-                "Error: " + error.message;
+        const archivo = document.getElementById("imagenProducto")
+            .files[0];
+
+        const tiposPermitidos = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp"
+        };
+
+        if (!nombre) {
+            mensaje.textContent = "Escribe un nombre.";
             return;
         }
 
-        mensajeGuardar.textContent =
-            "Producto guardado correctamente.";
+        if (archivo) {
+            if (!tiposPermitidos[archivo.type]) {
+                mensaje.textContent =
+                    "Solo se permiten imágenes JPG, PNG o WEBP.";
+                return;
+            }
 
-        formProducto.reset();
-        await cargarProductos();
+            if (archivo.size > 5 * 1024 * 1024) {
+                mensaje.textContent =
+                    "La fotografía no debe superar 5 MB.";
+                return;
+            }
+        }
+
+        boton.disabled = true;
+        let rutaImagen = null;
+        let urlImagen = null;
+
+        try {
+            if (archivo) {
+                mensaje.textContent = "Subiendo fotografía...";
+
+                const extension = tiposPermitidos[archivo.type];
+
+                rutaImagen =
+                    "catalogo/" + crypto.randomUUID() + "." + extension;
+
+                const { error: errorImagen } = await supabaseClient
+                    .storage
+                    .from("productos")
+                    .upload(rutaImagen, archivo, {
+                        contentType: archivo.type,
+                        upsert: false
+                    });
+
+                if (errorImagen) {
+                    rutaImagen = null;
+                    throw new Error(errorImagen.message);
+                }
+
+                const { data } = supabaseClient
+                    .storage
+                    .from("productos")
+                    .getPublicUrl(rutaImagen);
+
+                urlImagen = data.publicUrl;
+            }
+
+            mensaje.textContent = "Guardando producto...";
+
+            const { error } = await supabaseClient
+                .from("productos")
+                .insert({
+                    nombre: nombre,
+                    precio: precio === "" ? null : Number(precio),
+                    categoria: categoria,
+                    imagen: urlImagen,
+                    activo: false
+                });
+
+            if (error) {
+                if (rutaImagen) {
+                    await supabaseClient.storage
+                        .from("productos")
+                        .remove([rutaImagen]);
+                }
+
+                throw new Error(error.message);
+            }
+
+            mensaje.textContent =
+                "¡Producto y fotografía guardados correctamente!";
+
+            const vista = document.getElementById("vistaImagen");
+
+            if (vista) {
+                vista.replaceChildren();
+
+                if (urlImagen) {
+                    const imagen = document.createElement("img");
+                    imagen.src = urlImagen;
+                    imagen.alt = "Fotografía guardada";
+                    imagen.style.maxWidth = "200px";
+                    imagen.style.borderRadius = "8px";
+                    vista.appendChild(imagen);
+                }
+            }
+
+            formProducto.reset();
+            await cargarProductos();
+
+        } catch (error) {
+            mensaje.textContent = "Error: " + error.message;
+        } finally {
+            boton.disabled = false;
+        }
     });
 }
+
 
 document.getElementById("formEditar")
     .addEventListener("submit", async function(evento) {
