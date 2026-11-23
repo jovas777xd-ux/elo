@@ -310,6 +310,50 @@ document.getElementById("formProducto")
 
 iniciarPanel();
 
+const formProducto = document.getElementById("formProducto");
+
+if (formProducto) {
+    formProducto.addEventListener("submit", async function(evento) {
+        evento.preventDefault();
+
+        const mensajeGuardar =
+            document.getElementById("mensajeGuardar");
+
+        const nombre =
+            document.getElementById("nombreProducto").value.trim();
+
+        const precio =
+            document.getElementById("precioProducto").value;
+
+        const categoria =
+            document.getElementById("categoriaProducto").value.trim();
+
+        mensajeGuardar.textContent = "Guardando producto...";
+
+        const { error } = await supabaseClient
+            .from("productos")
+            .insert({
+                nombre: nombre,
+                precio: precio === "" ? null : Number(precio),
+                categoria: categoria,
+                activo: false
+            });
+
+        if (error) {
+            mensajeGuardar.textContent =
+                "Error: " + error.message;
+            return;
+        }
+
+        mensajeGuardar.textContent =
+            "Producto guardado correctamente.";
+
+        formProducto.reset();
+        await cargarProductos();
+    });
+}
+
+
 
 
 
