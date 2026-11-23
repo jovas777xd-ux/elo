@@ -249,17 +249,59 @@ async function cargarProductos() {
 
     mensaje.textContent = data.length + " productos encontrados.";
 
-    data.forEach(function(producto) {
-        const elemento = document.createElement("p");
+   
+data.forEach(function(producto) {
+    const elemento = document.createElement("div");
 
-        elemento.textContent =
-            producto.nombre + " | $" +
-            (producto.precio ?? "Sin precio") +
-            " | " + producto.categoria +
-            " | " + (producto.activo ? "Visible" : "Oculto");
+    elemento.style.borderBottom = "1px solid #555";
+    elemento.style.padding = "15px 0";
 
-        lista.appendChild(elemento);
+    const informacion = document.createElement("p");
+
+    informacion.textContent =
+        producto.nombre + " | $" +
+        (producto.precio ?? "Sin precio") +
+        " | " + (producto.categoria ?? "Sin categoría") +
+        " | " + (producto.activo ? "Visible" : "Oculto");
+
+    const botonEditar = document.createElement("button");
+    botonEditar.textContent = "Editar";
+    botonEditar.type = "button";
+
+    botonEditar.addEventListener("click", function() {
+        alert("Vamos a editar: " + producto.nombre);
     });
+
+    const botonEstado = document.createElement("button");
+    botonEstado.type = "button";
+    botonEstado.textContent = producto.activo
+        ? "Ocultar"
+        : "Mostrar";
+
+    botonEstado.addEventListener("click", async function() {
+        botonEstado.disabled = true;
+
+        const { error } = await supabaseClient
+            .from("productos")
+            .update({ activo: !producto.activo })
+            .eq("id", producto.id);
+
+        if (error) {
+            alert("Error: " + error.message);
+            botonEstado.disabled = false;
+            return;
+        }
+
+        await cargarProductos();
+    });
+
+    elemento.appendChild(informacion);
+    elemento.appendChild(botonEditar);
+    elemento.appendChild(botonEstado);
+
+    lista.appendChild(elemento);
+});
+
 }
 
 document.getElementById("actualizarProductos")
@@ -352,6 +394,7 @@ if (formProducto) {
         await cargarProductos();
     });
 }
+
 
 
 
