@@ -219,9 +219,3 @@ async function iniciarPanel() {
 }
 
 iniciarPanel();
-
-
-    await verificarAcceso();
-}
-
-iniciarPanel();
