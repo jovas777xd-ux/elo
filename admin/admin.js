@@ -44,15 +44,20 @@ async function verificarAcceso() {
         .eq("usuario_id", user.id)
         .maybeSingle();
 
-    if (permisoError || !data) {
-        await supabaseClient.auth.signOut();
+   
+if (permisoError || !data) {
 
-        mensaje.textContent =
-            "No tienes permiso de administración.";
+    console.log("Error de permisos:", permisoError);
+    console.log("Permiso encontrado:", data);
 
-        mostrar("login");
-        return;
-    }
+    mensaje.textContent = permisoError
+        ? "Error al consultar permisos: " + permisoError.message
+        : "La cuenta no aparece como administradora.";
+
+    mostrar("login");
+    return;
+}
+
 
     mostrar("panel");
 }
@@ -219,3 +224,4 @@ async function iniciarPanel() {
 }
 
 iniciarPanel();
+
