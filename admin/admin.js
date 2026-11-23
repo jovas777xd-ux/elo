@@ -60,6 +60,7 @@ if (permisoError || !data) {
 
 
     mostrar("panel");
+    await cargarProductos();
 }
 
 // Detectar una recuperación validada por Supabase
@@ -224,4 +225,5 @@ async function iniciarPanel() {
 }
 
 iniciarPanel();
+
 
