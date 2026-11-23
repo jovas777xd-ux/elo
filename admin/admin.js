@@ -224,6 +224,49 @@ async function iniciarPanel() {
     await verificarAcceso();
 }
 
+async function cargarProductos() {
+    const lista = document.getElementById("listaProductos");
+    const mensaje = document.getElementById("mensajeProductos");
+
+    mensaje.textContent = "Cargando productos...";
+    lista.replaceChildren();
+
+    const { data, error } = await supabaseClient
+        .from("productos")
+        .select("id, nombre, precio, categoria, activo")
+        .order("id");
+
+    if (error) {
+        mensaje.textContent = "Error: " + error.message;
+        return;
+    }
+
+    if (data.length === 0) {
+        mensaje.textContent =
+            "Todavía no hay productos registrados en Supabase.";
+        return;
+    }
+
+    mensaje.textContent = data.length + " productos encontrados.";
+
+    data.forEach(function(producto) {
+        const elemento = document.createElement("p");
+
+        elemento.textContent =
+            producto.nombre + " | $" +
+            (producto.precio ?? "Sin precio") +
+            " | " + producto.categoria +
+            " | " + (producto.activo ? "Visible" : "Oculto");
+
+        lista.appendChild(elemento);
+    });
+}
+
+document.getElementById("actualizarProductos")
+    .addEventListener("click", cargarProductos);
+
+
 iniciarPanel();
+
 
 
