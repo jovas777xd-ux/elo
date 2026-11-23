@@ -233,7 +233,7 @@ async function cargarProductos() {
 
     const { data, error } = await supabaseClient
         .from("productos")
-        .select("id, nombre, precio, categoria, activo")
+   .select("id, nombre, precio, categoria, activo, imagen")
         .order("id");
 
     if (error) {
@@ -317,8 +317,25 @@ botonEditar.addEventListener("click", function() {
         await cargarProductos();
     });
 
-    elemento.appendChild(informacion);
-    elemento.appendChild(botonEditar);
+elemento.appendChild(informacion);
+
+// Mostrar la fotografía del producto
+if (producto.imagen) {
+    const foto = document.createElement("img");
+
+    foto.src = producto.imagen;
+    foto.alt = producto.nombre;
+
+    foto.style.width = "150px";
+    foto.style.maxWidth = "100%";
+    foto.style.borderRadius = "10px";
+    foto.style.marginBottom = "10px";
+
+    elemento.appendChild(foto);
+}
+
+elemento.appendChild(botonEditar);
+
     elemento.appendChild(botonEstado);
 
     lista.appendChild(elemento);
