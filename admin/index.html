@@ -31,7 +31,7 @@
             color: #ffbf00;
         }
 
-        input, button {
+        input, select, button {
             width: 100%;
             padding: 12px;
             margin-top: 12px;
@@ -39,7 +39,7 @@
             border-radius: 6px;
         }
 
-        input {
+        input, select {
             border: 1px solid #555;
             background: #333;
             color: white;
@@ -58,6 +58,75 @@
 
         #panel {
             display: none;
+        }
+
+        /* Administración más cómoda en escritorio y teléfono. */
+        #panel {
+            width: min(1080px, 94vw); max-width: 94vw;
+            box-sizing: border-box; text-align: left;
+            margin: 24px auto;
+        }
+        #panel h1 { text-align: center; }
+        #panel h2 { color: #ffbf00; margin-top: 30px; }
+        #panel label { display: block; margin-top: 12px; font-weight: 600; }
+        #panel button:hover { filter: brightness(1.08); }
+        #panel button:disabled { opacity: 0.55; cursor: not-allowed; }
+        #formProducto, #seccionEditar {
+            max-width: 650px; box-sizing: border-box;
+            background: #303030; border: 1px solid #454545;
+            padding: 20px; border-radius: 12px;
+        }
+        #formProducto input, #formProducto select,
+        #formEditar input, #formEditar select { width: 100%; }
+        #formProducto > button, #formEditar > button { max-width: 290px; }
+        #actualizarProductos, #salir { width: auto; padding: 11px 22px; }
+        #buscarProductoAdmin { max-width: 520px; }
+        #listaProductos { display: grid; gap: 12px; margin: 20px 0; }
+        .producto-fila {
+            display: grid; grid-template-columns: 78px minmax(0, 1fr) auto;
+            align-items: center; gap: 15px; min-width: 0;
+            background: #303030; border: 1px solid #484848;
+            border-radius: 12px; padding: 12px;
+        }
+        .producto-fila[hidden] { display: none; }
+        .producto-imagen-caja {
+            height: 76px; width: 76px; background: #424242;
+            border-radius: 9px; display: flex; align-items: center;
+            justify-content: center; color: #ccc; text-align: center;
+            font-size: 12px; overflow: hidden;
+        }
+        .producto-imagen {
+            width: 100%; height: 100%; object-fit: cover; border-radius: 9px;
+        }
+        .producto-detalles { min-width: 0; }
+        .producto-nombre {
+            display: block; color: #fff; font-size: 16px; overflow-wrap: anywhere;
+        }
+        .producto-meta { margin: 6px 0 0; color: #c8c8c8; font-size: 13px; }
+        .producto-precio { color: #ffdf85; font-weight: 700; }
+        .producto-estado {
+            display: inline-block; border-radius: 20px; padding: 3px 9px;
+            font-size: 12px; margin-top: 7px; font-weight: bold;
+        }
+        .producto-estado.visible { background: #20583c; color: #c5ffe0; }
+        .producto-estado.oculto { background: #624726; color: #ffe9bf; }
+        .producto-acciones {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            justify-content: flex-end; max-width: 320px;
+        }
+        .producto-acciones button {
+            width: auto; margin-top: 0; padding: 10px 12px;
+            font-size: 13px; white-space: normal;
+        }
+        .producto-acciones .accion-eliminar { background: #ab2637; color: #fff; }
+        @media (max-width: 760px) {
+            #panel { padding: 18px 14px; }
+            .producto-fila { grid-template-columns: 76px minmax(0, 1fr); }
+            .producto-acciones {
+                grid-column: 1 / -1; max-width: none;
+                justify-content: flex-start;
+            }
+            .producto-acciones button { flex: 1 1 100px; }
         }
     </style>
 </head>
@@ -131,11 +200,12 @@
         step="0.01"
     >
 
-    <input
-        type="text"
-        id="categoriaProducto"
-        placeholder="Categoría"
-    >
+    <label for="categoriaProducto">Categoría del producto</label>
+    <select id="categoriaProducto" required>
+        <option value="" selected disabled>Selecciona una categoría</option>
+        <option value="baterias">Baterías</option>
+        <option value="jugueteria">Juguetería</option>
+    </select>
 
 <label for="imagenProducto">
     Fotografía del producto
@@ -177,11 +247,12 @@
             step="0.01"
         >
 
-        <input
-            type="text"
-            id="editarCategoria"
-            placeholder="Categoría"
-        >
+        <label for="editarCategoria">Categoría del producto</label>
+        <select id="editarCategoria" required>
+            <option value="" disabled>Selecciona una categoría</option>
+            <option value="baterias">Baterías</option>
+            <option value="jugueteria">Juguetería</option>
+        </select>
 
 <label for="editarImagen">
     Cambiar fotografía (opcional)
@@ -225,7 +296,7 @@
    
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js?v=4"></script>
-<script src="admin.js?v=20"></script>
+<script src="admin.js?v=21"></script>
 
 
 </body>
