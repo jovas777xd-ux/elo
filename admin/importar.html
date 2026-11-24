@@ -1,162 +1,165 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1">
-  <title>Importación temporal ELO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ELO · Importación de respaldo</title>
+  <style>
+    body { margin: 0; background: #161622; color: #f8f8f8; font: 16px/1.6 Arial, sans-serif; }
+    main { max-width: 680px; margin: 48px auto; padding: 24px; background: #242438; border-radius: 14px; }
+    h1 { color: #ffca43; }
+    button { padding: 12px 18px; margin: 6px 8px 6px 0; border: 0; border-radius: 7px; font-weight: bold; cursor: pointer; }
+    button:disabled { cursor: default; opacity: .5; }
+    #estado { white-space: pre-wrap; }
+    .aviso { color: #fce39b; }
+    a { color: #a4d4ff; }
+  </style>
 </head>
-<body style="font-family:Arial;max-width:600px;margin:50px auto;padding:20px">
-
-  <h1>Importar catálogo original</h1>
-  <p>Importación única de los 198 productos de ELO.</p>
-
-  <button id="importar" type="button">
-    Importar 198 productos
-  </button>
-
-  <p id="estado"></p>
+<body>
+  <main>
+    <h1>Importación controlada de ELO</h1>
+    <p>Primero analiza el catálogo original. Solo después podrás importar. La página pública no se modifica.</p>
+    <p class="aviso">Requiere una sesión de administradora de <a href="./">ELO Admin</a>. Ejecuta la importación una sola vez. No elimines productos existentes.</p>
+    <button id="analizar" type="button">1. Analizar sin importar</button>
+    <button id="importar" type="button" disabled>2. Importar 198 productos</button>
+    <p id="estado" role="status">No se ha realizado ningún cambio.</p>
+  </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-
   <script>
-    const cliente = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_KEY
-    );
-
-    const boton = document.getElementById("importar");
+    const cliente = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const analizar = document.getElementById("analizar");
+    const importar = document.getElementById("importar");
     const estado = document.getElementById("estado");
+    let registros = null;
+    let ocupado = false;
 
-    boton.addEventListener("click", async () => {
-      boton.disabled = true;
+    function mostrar(mensaje) { estado.textContent = mensaje; }
 
+    async function revisarAcceso() {
+      const { data: auth, error: authError } = await cliente.auth.getUser();
+      if (authError || !auth.user) {
+        throw new Error("No hay sesión. Inicia sesión en ELO Admin, regresa y analiza de nuevo.");
+      }
+      const { data: admin, error: adminError } = await cliente
+        .from("administradores")
+        .select("usuario_id")
+        .eq("usuario_id", auth.user.id)
+        .maybeSingle();
+      if (adminError) throw new Error("No se pudieron consultar permisos: " + adminError.message);
+      if (!admin) throw new Error("Esta cuenta no tiene permisos de administración.");
+    }
+
+    async function comprobarColisiones(items) {
+      const ids = items.map(item => item.id);
+      const { data, error } = await cliente
+        .from("productos")
+        .select("id")
+        .in("id", ids);
+      if (error) throw new Error("Error comprobando IDs existentes: " + error.message);
+      if (data.length > 0) {
+        throw new Error(
+          "Se detectaron " + data.length + " IDs ya existentes entre los productos originales. " +
+          "No se importó nada para evitar sobrescrituras o duplicados."
+        );
+      }
+    }
+
+    async function prepararDatos() {
+      const respuesta = await fetch("../index.html", { cache: "no-store" });
+      if (!respuesta.ok) throw new Error("No se pudo leer el index.html original.");
+      const html = await respuesta.text();
+
+      const bloqueProductos = html.match(/const products\s*=\s*(\[[^\r\n]*\]);/);
+      const bloquePrecios = html.match(/const precios\s*=\s*\{([\s\S]*?)\};/);
+      if (!bloqueProductos || !bloquePrecios) {
+        throw new Error("El formato del catálogo original cambió. No se importó nada.");
+      }
+
+      const originales = JSON.parse(bloqueProductos[1]);
+      if (!Array.isArray(originales) || originales.length !== 198) {
+        throw new Error("Se esperaban 198 productos; se encontraron " + originales.length + ".");
+      }
+
+      const precios = {};
+      const patron = /^\s*(?:\/\*.*?\*\/\s*)?(\d+)\s*:\s*(null|\d+(?:\.\d+)?)\s*,?\s*$/gm;
+      for (const encontrado of bloquePrecios[1].matchAll(patron)) {
+        precios[encontrado[1]] =
+          encontrado[2] === "null" ? null : Number(encontrado[2]);
+      }
+
+      const raizImagenes = new URL("../", location.href);
+      const items = originales.map(p => ({
+        id: Number(p.id),
+        nombre: p.name,
+        descripcion: p.description || "",
+        precio: precios[p.id] ?? null,
+        categoria: p.category,
+        imagen: p.image ? new URL(p.image, raizImagenes).href : null,
+        tiros: p.shots ?? null,
+        video: p.video || null,
+        categoria_etiqueta: p.categoryLabel || null,
+        simbolo: p.symbol || null,
+        activo: true
+      }));
+
+      const ids = items.map(p => p.id);
+      if (ids.some(id => !Number.isSafeInteger(id) || id <= 0) || new Set(ids).size !== 198) {
+        throw new Error("Hay identificadores inválidos o repetidos en el catálogo original.");
+      }
+      return items;
+    }
+
+    analizar.addEventListener("click", async () => {
+      if (ocupado) return;
+      ocupado = true;
+      analizar.disabled = true;
+      importar.disabled = true;
+      registros = null;
       try {
-        estado.textContent = "Comprobando acceso...";
-
-        const { data: sesion, error: errorSesion } =
-          await cliente.auth.getUser();
-
-        if (errorSesion || !sesion.user) {
-          throw new Error(
-            "Inicia sesión en /elo/admin/ y vuelve aquí."
-          );
-        }
-
-        const { data: permiso, error: errorPermiso } =
-          await cliente
-            .from("administradores")
-            .select("usuario_id")
-            .eq("usuario_id", sesion.user.id)
-            .maybeSingle();
-
-        if (errorPermiso || !permiso) {
-          throw new Error("Cuenta sin permiso de administración.");
-        }
-
-        estado.textContent = "Leyendo catálogo...";
-
-        const respuesta = await fetch("../index.html", {
-          cache: "no-store"
-        });
-
-        if (!respuesta.ok) {
-          throw new Error("No se pudo leer el catálogo.");
-        }
-
-        const html = await respuesta.text();
-
-        const productosHTML = html.match(
-          /const products\s*=\s*(\[[^\n]*\]);/
-        );
-
-        const preciosHTML = html.match(
-          /const precios\s*=\s*\{([\s\S]*?)\};/
-        );
-
-        if (!productosHTML || !preciosHTML) {
-          throw new Error("Formato del catálogo no reconocido.");
-        }
-
-        const originales = JSON.parse(productosHTML[1]);
-
-        if (originales.length !== 198) {
-          throw new Error(
-            "Se esperaban 198 productos, pero hay " +
-            originales.length
-          );
-        }
-
-        const precios = {};
-        const patron =
-          /^\s*(?:\/\*.*?\*\/\s*)?(\d+)\s*:\s*(null|\d+(?:\.\d+)?)\s*,?\s*$/gm;
-
-        for (const encontrado of preciosHTML[1].matchAll(patron)) {
-          precios[encontrado[1]] =
-            encontrado[2] === "null"
-              ? null
-              : Number(encontrado[2]);
-        }
-
-        const raiz = new URL("../", window.location.href);
-
-        const registros = originales.map(producto => ({
-          id: Number(producto.id),
-          nombre: producto.name,
-          descripcion: producto.description || "",
-          precio: precios[producto.id] ?? null,
-          categoria: producto.category,
-          imagen: producto.image
-            ? new URL(producto.image, raiz).href
-            : null,
-          tiros: producto.shots ?? null,
-          video: producto.video || null,
-          categoria_etiqueta: producto.categoryLabel || null,
-          simbolo: producto.symbol || null,
-          activo: true
-        }));
-
-        estado.textContent = "Comprobando duplicados...";
-
-        const { data: existentes, error: errorBusqueda } =
-          await cliente
-            .from("productos")
-            .select("id")
-            .in("id", registros.map(p => p.id));
-
-        if (errorBusqueda) {
-          throw new Error(errorBusqueda.message);
-        }
-
-        if (existentes.length) {
-          throw new Error(
-            "Hay " + existentes.length +
-            " identificadores existentes. No se importó nada."
-          );
-        }
-
-        estado.textContent = "Importando productos...";
-
-        const { error } = await cliente
-          .from("productos")
-          .insert(registros);
-
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        estado.textContent =
-          "¡Éxito! Se importaron los 198 productos. " +
-          "Compruébalos en Supabase.";
-
+        mostrar("Comprobando sesión y catálogo...");
+        await revisarAcceso();
+        const items = await prepararDatos();
+        await comprobarColisiones(items);
+        registros = items;
+        const conPrecio = items.filter(p => p.precio !== null).length;
+        mostrar("Análisis correcto.\n198 productos, IDs únicos, 0 colisiones.\n" +
+          conPrecio + " con precio numérico; " + (198 - conPrecio) + " sin precio.\n" +
+          "No se ha guardado nada. Si los datos son correctos, puedes importar.");
+        importar.disabled = false;
       } catch (error) {
-        estado.textContent = "Error: " + error.message;
-        boton.disabled = false;
+        mostrar("No se realizó ningún cambio.\n" + error.message);
+      } finally {
+        analizar.disabled = false;
+        ocupado = false;
+      }
+    });
+
+    importar.addEventListener("click", async () => {
+      if (ocupado || !registros) return;
+      if (!confirm("¿Importar 198 productos originales a Supabase? No se alterará el catálogo público.")) return;
+      ocupado = true;
+      analizar.disabled = true;
+      importar.disabled = true;
+      try {
+        mostrar("Comprobando permisos y duplicados por última vez...");
+        await revisarAcceso();
+        await comprobarColisiones(registros);
+        mostrar("Guardando 198 registros. No cierres esta pestaña.");
+        const { error } = await cliente.from("productos").insert(registros);
+        if (error) throw new Error(error.message);
+        registros = null;
+        mostrar("¡Importación enviada correctamente!\nVerifica en Supabase los 198 registros originales. " +
+          "No vuelvas a importar.\nEl catálogo público aún no se ha conectado a Supabase.");
+      } catch (error) {
+        mostrar("No se pudo completar la importación:\n" + error.message +
+          "\nAntes de repetir, comprueba cuántos registros aparecen en Supabase.");
+      } finally {
+        analizar.disabled = false;
+        ocupado = false;
       }
     });
   </script>
 </body>
 </html>
-
