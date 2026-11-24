@@ -1,1 +1,162 @@
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <title>Importación temporal ELO</title>
+</head>
+<body style="font-family:Arial;max-width:600px;margin:50px auto;padding:20px">
+
+  <h1>Importar catálogo original</h1>
+  <p>Importación única de los 198 productos de ELO.</p>
+
+  <button id="importar" type="button">
+    Importar 198 productos
+  </button>
+
+  <p id="estado"></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+
+  <script>
+    const cliente = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+    const boton = document.getElementById("importar");
+    const estado = document.getElementById("estado");
+
+    boton.addEventListener("click", async () => {
+      boton.disabled = true;
+
+      try {
+        estado.textContent = "Comprobando acceso...";
+
+        const { data: sesion, error: errorSesion } =
+          await cliente.auth.getUser();
+
+        if (errorSesion || !sesion.user) {
+          throw new Error(
+            "Inicia sesión en /elo/admin/ y vuelve aquí."
+          );
+        }
+
+        const { data: permiso, error: errorPermiso } =
+          await cliente
+            .from("administradores")
+            .select("usuario_id")
+            .eq("usuario_id", sesion.user.id)
+            .maybeSingle();
+
+        if (errorPermiso || !permiso) {
+          throw new Error("Cuenta sin permiso de administración.");
+        }
+
+        estado.textContent = "Leyendo catálogo...";
+
+        const respuesta = await fetch("../index.html", {
+          cache: "no-store"
+        });
+
+        if (!respuesta.ok) {
+          throw new Error("No se pudo leer el catálogo.");
+        }
+
+        const html = await respuesta.text();
+
+        const productosHTML = html.match(
+          /const products\s*=\s*(\[[^\n]*\]);/
+        );
+
+        const preciosHTML = html.match(
+          /const precios\s*=\s*\{([\s\S]*?)\};/
+        );
+
+        if (!productosHTML || !preciosHTML) {
+          throw new Error("Formato del catálogo no reconocido.");
+        }
+
+        const originales = JSON.parse(productosHTML[1]);
+
+        if (originales.length !== 198) {
+          throw new Error(
+            "Se esperaban 198 productos, pero hay " +
+            originales.length
+          );
+        }
+
+        const precios = {};
+        const patron =
+          /^\s*(?:\/\*.*?\*\/\s*)?(\d+)\s*:\s*(null|\d+(?:\.\d+)?)\s*,?\s*$/gm;
+
+        for (const encontrado of preciosHTML[1].matchAll(patron)) {
+          precios[encontrado[1]] =
+            encontrado[2] === "null"
+              ? null
+              : Number(encontrado[2]);
+        }
+
+        const raiz = new URL("../", window.location.href);
+
+        const registros = originales.map(producto => ({
+          id: Number(producto.id),
+          nombre: producto.name,
+          descripcion: producto.description || "",
+          precio: precios[producto.id] ?? null,
+          categoria: producto.category,
+          imagen: producto.image
+            ? new URL(producto.image, raiz).href
+            : null,
+          tiros: producto.shots ?? null,
+          video: producto.video || null,
+          categoria_etiqueta: producto.categoryLabel || null,
+          simbolo: producto.symbol || null,
+          activo: true
+        }));
+
+        estado.textContent = "Comprobando duplicados...";
+
+        const { data: existentes, error: errorBusqueda } =
+          await cliente
+            .from("productos")
+            .select("id")
+            .in("id", registros.map(p => p.id));
+
+        if (errorBusqueda) {
+          throw new Error(errorBusqueda.message);
+        }
+
+        if (existentes.length) {
+          throw new Error(
+            "Hay " + existentes.length +
+            " identificadores existentes. No se importó nada."
+          );
+        }
+
+        estado.textContent = "Importando productos...";
+
+        const { error } = await cliente
+          .from("productos")
+          .insert(registros);
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        estado.textContent =
+          "¡Éxito! Se importaron los 198 productos. " +
+          "Compruébalos en Supabase.";
+
+      } catch (error) {
+        estado.textContent = "Error: " + error.message;
+        boton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
+
