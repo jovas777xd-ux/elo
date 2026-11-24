@@ -2,9 +2,6 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1">
-  <title>Importación temporal ELO</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ELO · Importación de respaldo</title>
   <style>
@@ -18,16 +15,6 @@
     a { color: #a4d4ff; }
   </style>
 </head>
-<body style="font-family:Arial;max-width:600px;margin:50px auto;padding:20px">
-
-  <h1>Importar catálogo original</h1>
-  <p>Importación única de los 198 productos de ELO.</p>
-
-  <button id="importar" type="button">
-    Importar 198 productos
-  </button>
-
-  <p id="estado"></p>
 <body>
   <main>
     <h1>Importación controlada de ELO</h1>
@@ -40,14 +27,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-
   <script>
-    const cliente = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_KEY
-    );
-
-    const boton = document.getElementById("importar");
     const cliente = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const analizar = document.getElementById("analizar");
     const importar = document.getElementById("importar");
@@ -55,51 +35,8 @@
     let registros = null;
     let ocupado = false;
 
-    boton.addEventListener("click", async () => {
-      boton.disabled = true;
-
-      try {
-        estado.textContent = "Comprobando acceso...";
-
-        const { data: sesion, error: errorSesion } =
-          await cliente.auth.getUser();
-
-        if (errorSesion || !sesion.user) {
-          throw new Error(
-            "Inicia sesión en /elo/admin/ y vuelve aquí."
-          );
-        }
     function mostrar(mensaje) { estado.textContent = mensaje; }
 
-        const { data: permiso, error: errorPermiso } =
-          await cliente
-            .from("administradores")
-            .select("usuario_id")
-            .eq("usuario_id", sesion.user.id)
-            .maybeSingle();
-
-        if (errorPermiso || !permiso) {
-          throw new Error("Cuenta sin permiso de administración.");
-        }
-
-        estado.textContent = "Leyendo catálogo...";
-
-        const respuesta = await fetch("../index.html", {
-          cache: "no-store"
-        });
-
-        if (!respuesta.ok) {
-          throw new Error("No se pudo leer el catálogo.");
-        }
-
-        const html = await respuesta.text();
-
-        const productosHTML = html.match(
-          /const products\s*=\s*(\[[^\n]*\]);/
-        );
-
-        const preciosHTML = html.match(
-          /const precios\s*=\s*\{([\s\S]*?)\};/
     async function revisarAcceso() {
       const { data: auth, error: authError } = await cliente.auth.getUser();
       if (authError || !auth.user) {
@@ -129,89 +66,22 @@
       }
     }
 
-        if (!productosHTML || !preciosHTML) {
-          throw new Error("Formato del catálogo no reconocido.");
-        }
-
-        const originales = JSON.parse(productosHTML[1]);
-
-        if (originales.length !== 198) {
-          throw new Error(
-            "Se esperaban 198 productos, pero hay " +
-            originales.length
-          );
-        }
-
-        const precios = {};
-        const patron =
-          /^\s*(?:\/\*.*?\*\/\s*)?(\d+)\s*:\s*(null|\d+(?:\.\d+)?)\s*,?\s*$/gm;
-
-        for (const encontrado of preciosHTML[1].matchAll(patron)) {
-          precios[encontrado[1]] =
-            encontrado[2] === "null"
-              ? null
-              : Number(encontrado[2]);
-        }
-
-        const raiz = new URL("../", window.location.href);
-
-        const registros = originales.map(producto => ({
-          id: Number(producto.id),
-          nombre: producto.name,
-          descripcion: producto.description || "",
-          precio: precios[producto.id] ?? null,
-          categoria: producto.category,
-          imagen: producto.image
-            ? new URL(producto.image, raiz).href
-            : null,
-          tiros: producto.shots ?? null,
-          video: producto.video || null,
-          categoria_etiqueta: producto.categoryLabel || null,
-          simbolo: producto.symbol || null,
-          activo: true
-        }));
-
-        estado.textContent = "Comprobando duplicados...";
-
-        const { data: existentes, error: errorBusqueda } =
-          await cliente
-            .from("productos")
-            .select("id")
-            .in("id", registros.map(p => p.id));
-
-        if (errorBusqueda) {
-          throw new Error(errorBusqueda.message);
-        }
-
-        if (existentes.length) {
-          throw new Error(
-            "Hay " + existentes.length +
-            " identificadores existentes. No se importó nada."
-          );
-        }
     async function prepararDatos() {
       const respuesta = await fetch("../index.html", { cache: "no-store" });
       if (!respuesta.ok) throw new Error("No se pudo leer el index.html original.");
       const html = await respuesta.text();
 
-        estado.textContent = "Importando productos...";
       const bloqueProductos = html.match(/const products\s*=\s*(\[[^\r\n]*\]);/);
       const bloquePrecios = html.match(/const precios\s*=\s*\{([\s\S]*?)\};/);
       if (!bloqueProductos || !bloquePrecios) {
         throw new Error("El formato del catálogo original cambió. No se importó nada.");
       }
 
-        const { error } = await cliente
-          .from("productos")
-          .insert(registros);
       const originales = JSON.parse(bloqueProductos[1]);
       if (!Array.isArray(originales) || originales.length !== 198) {
         throw new Error("Se esperaban 198 productos; se encontraron " + originales.length + ".");
       }
 
-        if (error) {
-          throw new Error(error.message);
-        }
       const precios = {};
       const patron = /^\s*(?:\/\*.*?\*\/\s*)?(\d+)\s*:\s*(null|\d+(?:\.\d+)?)\s*,?\s*$/gm;
       for (const encontrado of bloquePrecios[1].matchAll(patron)) {
@@ -219,9 +89,6 @@
           encontrado[2] === "null" ? null : Number(encontrado[2]);
       }
 
-        estado.textContent =
-          "¡Éxito! Se importaron los 198 productos. " +
-          "Compruébalos en Supabase.";
       const raizImagenes = new URL("../", location.href);
       const items = originales.map(p => ({
         id: Number(p.id),
@@ -286,8 +153,6 @@
         mostrar("¡Importación enviada correctamente!\nVerifica en Supabase los 198 registros originales. " +
           "No vuelvas a importar.\nEl catálogo público aún no se ha conectado a Supabase.");
       } catch (error) {
-        estado.textContent = "Error: " + error.message;
-        boton.disabled = false;
         mostrar("No se pudo completar la importación:\n" + error.message +
           "\nAntes de repetir, comprueba cuántos registros aparecen en Supabase.");
       } finally {
@@ -298,4 +163,3 @@
   </script>
 </body>
 </html>
-
