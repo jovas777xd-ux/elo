@@ -205,6 +205,17 @@
     <p id="mensajeEditar"></p>
 </div>
 
+<h2>Buscar en los productos</h2>
+<label for="buscarProductoAdmin">Nombre, categoría o ID</label>
+<input
+    type="search"
+    id="buscarProductoAdmin"
+    placeholder="Ej. Cake Amazonas, baterias, 72"
+    autocomplete="off"
+    aria-describedby="contadorBusqueda"
+>
+<p id="contadorBusqueda" aria-live="polite"></p>
+
 <div id="listaProductos"></div>
 
 <button id="salir">Cerrar sesión</button>
@@ -214,7 +225,7 @@
    
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js?v=4"></script>
-<script src="admin.js?v=19"></script>
+<script src="admin.js?v=20"></script>
 
 
 </body>

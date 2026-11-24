@@ -230,6 +230,7 @@ async function cargarProductos() {
 
     mensaje.textContent = "Cargando productos...";
     lista.replaceChildren();
+    document.getElementById("contadorBusqueda").textContent = "";
 
     const { data, error } = await supabaseClient
         .from("productos")
@@ -252,6 +253,11 @@ async function cargarProductos() {
    
 data.forEach(function(producto) {
     const elemento = document.createElement("div");
+
+    // Permite buscar por nombre, categoría y número de producto.
+    elemento.dataset.busqueda = normalizarBusquedaAdmin(
+        [producto.nombre, producto.categoria, producto.id].join(" ")
+    );
 
     elemento.style.borderBottom = "1px solid #555";
     elemento.style.padding = "15px 0";
@@ -399,7 +405,39 @@ elemento.appendChild(botonEditar);
     lista.appendChild(elemento);
 });
 
+    aplicarBusquedaAdmin();
 }
+
+function normalizarBusquedaAdmin(texto) {
+    return String(texto ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLocaleLowerCase("es")
+        .trim();
+}
+
+function aplicarBusquedaAdmin() {
+    const lista = document.getElementById("listaProductos");
+    const consulta = normalizarBusquedaAdmin(
+        document.getElementById("buscarProductoAdmin").value
+    );
+    let visibles = 0;
+
+    Array.from(lista.children).forEach(function(elemento) {
+        const coincide = elemento.dataset.busqueda.includes(consulta);
+        elemento.hidden = !coincide;
+        if (coincide) visibles++;
+    });
+
+    const total = lista.children.length;
+    const contador = document.getElementById("contadorBusqueda");
+    contador.textContent = consulta
+        ? "Encontrados " + visibles + " de " + total + " productos."
+        : "Mostrando " + total + " productos.";
+}
+
+document.getElementById("buscarProductoAdmin")
+    .addEventListener("input", aplicarBusquedaAdmin);
 
 document.getElementById("actualizarProductos")
     .addEventListener("click", cargarProductos);
