@@ -253,22 +253,41 @@ async function cargarProductos() {
    
 data.forEach(function(producto) {
     const elemento = document.createElement("div");
+    elemento.className = "producto-fila";
 
     // Permite buscar por nombre, categoría y número de producto.
     elemento.dataset.busqueda = normalizarBusquedaAdmin(
         [producto.nombre, producto.categoria, producto.id].join(" ")
     );
 
-    elemento.style.borderBottom = "1px solid #555";
-    elemento.style.padding = "15px 0";
+    const informacion = document.createElement("div");
+    informacion.className = "producto-detalles";
 
-    const informacion = document.createElement("p");
+    const nombre = document.createElement("strong");
+    nombre.className = "producto-nombre";
+    nombre.textContent = producto.nombre;
 
-    informacion.textContent =
-        producto.nombre + " | $" +
-        (producto.precio ?? "Sin precio") +
-        " | " + (producto.categoria ?? "Sin categoría") +
-        " | " + (producto.activo ? "Visible" : "Oculto");
+    const detalles = document.createElement("p");
+    detalles.className = "producto-meta";
+    const categoria = producto.categoria === "baterias"
+        ? "Baterías" : producto.categoria === "jugueteria"
+        ? "Juguetería" : (producto.categoria || "Sin categoría");
+    detalles.textContent = "ID " + producto.id + " · " + categoria;
+
+    const precio = document.createElement("div");
+    precio.className = "producto-precio";
+    precio.textContent = producto.precio == null
+        ? "Por cotizar"
+        : new Intl.NumberFormat("es-MX", {
+            style: "currency", currency: "MXN"
+        }).format(Number(producto.precio));
+
+    const estado = document.createElement("span");
+    estado.className = "producto-estado " +
+        (producto.activo ? "visible" : "oculto");
+    estado.textContent = producto.activo ? "Visible" : "Oculto";
+
+    informacion.append(nombre, detalles, precio, estado);
 
     const botonEditar = document.createElement("button");
     botonEditar.textContent = "Editar";
@@ -323,26 +342,27 @@ document.getElementById("editarImagen").value = "";
         await cargarProductos();
     });
 
-elemento.appendChild(informacion);
-
-// Mostrar la fotografía del producto
+// Miniatura a la izquierda de cada producto.
+const marco = document.createElement("div");
+marco.className = "producto-imagen-caja";
 if (producto.imagen) {
     const foto = document.createElement("img");
-
+    foto.className = "producto-imagen";
     foto.src = producto.imagen;
     foto.alt = producto.nombre;
-
-    foto.style.width = "150px";
-    foto.style.maxWidth = "100%";
-    foto.style.borderRadius = "10px";
-    foto.style.marginBottom = "10px";
-
-    elemento.appendChild(foto);
+    foto.loading = "lazy";
+    foto.addEventListener("error", function() {
+        marco.textContent = "Sin foto";
+    }, { once: true });
+    marco.appendChild(foto);
+} else {
+    marco.textContent = "Sin foto";
 }
+elemento.append(marco, informacion);
 
-elemento.appendChild(botonEditar);
-
-    elemento.appendChild(botonEstado);
+const acciones = document.createElement("div");
+acciones.className = "producto-acciones";
+acciones.append(botonEditar, botonEstado);
 
     // Permitir borrar permanentemente solo despues de ocultar el producto.
     // El usuario debe confirmar escribiendo el nombre exacto.
@@ -350,9 +370,7 @@ elemento.appendChild(botonEditar);
         const botonEliminar = document.createElement("button");
         botonEliminar.type = "button";
         botonEliminar.textContent = "Eliminar definitivamente";
-        botonEliminar.style.marginLeft = "8px";
-        botonEliminar.style.backgroundColor = "#a52034";
-        botonEliminar.style.color = "#fff";
+        botonEliminar.className = "accion-eliminar";
 
         botonEliminar.addEventListener("click", async function() {
             const confirmacion = prompt(
@@ -399,9 +417,10 @@ elemento.appendChild(botonEditar);
             }
         });
 
-        elemento.appendChild(botonEliminar);
+        acciones.appendChild(botonEliminar);
     }
 
+    elemento.appendChild(acciones);
     lista.appendChild(elemento);
 });
 
