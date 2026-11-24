@@ -338,6 +338,64 @@ elemento.appendChild(botonEditar);
 
     elemento.appendChild(botonEstado);
 
+    // Permitir borrar permanentemente solo despues de ocultar el producto.
+    // El usuario debe confirmar escribiendo el nombre exacto.
+    if (!producto.activo) {
+        const botonEliminar = document.createElement("button");
+        botonEliminar.type = "button";
+        botonEliminar.textContent = "Eliminar definitivamente";
+        botonEliminar.style.marginLeft = "8px";
+        botonEliminar.style.backgroundColor = "#a52034";
+        botonEliminar.style.color = "#fff";
+
+        botonEliminar.addEventListener("click", async function() {
+            const confirmacion = prompt(
+                'Para eliminar definitivamente "' + producto.nombre +
+                '", escribe su nombre exacto. Esta accion no se puede deshacer:'
+            );
+
+            if (confirmacion === null) return;
+
+            if (confirmacion.trim() !== producto.nombre.trim()) {
+                alert("El nombre no coincide. No se elimino el producto.");
+                return;
+            }
+
+            botonEliminar.disabled = true;
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from("productos")
+                    .delete()
+                    .eq("id", producto.id)
+                    .eq("activo", false)
+                    .select("id");
+
+                if (error) throw new Error(error.message);
+
+                if (!data || data.length !== 1) {
+                    throw new Error(
+                        "No se elimino el producto. Puede que ya este visible " +
+                        "o que no tengas permiso."
+                    );
+                }
+
+                const editarId = document.getElementById("editarId");
+                if (editarId && String(editarId.value) === String(producto.id)) {
+                    document.getElementById("seccionEditar").style.display = "none";
+                }
+
+                await cargarProductos();
+                alert("Producto eliminado correctamente.");
+            } catch (error) {
+                alert("No se pudo eliminar: " + error.message);
+                botonEliminar.disabled = false;
+            }
+        });
+
+        elemento.appendChild(botonEliminar);
+    }
+
     lista.appendChild(elemento);
 });
 
